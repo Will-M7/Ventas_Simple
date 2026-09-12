@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: backend-mysql-1
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: sistematienda
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    deploy:
+      resources:
+        limits:
+          memory: 700M
+
+  api:
+    build: .
+    container_name: backend-api-1
+    ports:
+      - "3000:3000"
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: sistematienda
+      DB_PORT: 3306
+    depends_on:
+      - mysql
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+
+volumes:
+  mysql_data:

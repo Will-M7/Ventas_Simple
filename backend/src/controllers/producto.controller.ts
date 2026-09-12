@@ -1,0 +1,11 @@
+import { Request, Response } from 'express';
+import { ProductoService } from '../services/producto.service';
+const service = new ProductoService();
+const input = (req: Request): any => { const result: Record<string, unknown> = { ...req.body }; const code = req.body.codigo ?? req.body.codigo_barras; if (code !== undefined) result.codigo = code; for (const key of ['precio_compra', 'precio_venta', 'stock', 'stock_minimo']) if (req.body[key] !== undefined) result[key] = Number(req.body[key]); if (req.file) result.imagen = '/uploads/products/' + req.file.filename; return result; };
+export const list = (req: Request, res: Response) => res.json(service.list({ search: String(req.query.search ?? ''), ...(req.query.categoria ? { categoria: String(req.query.categoria) } : {}), incluirInactivos: req.user?.rol === 'admin' && req.query.incluirInactivos === 'true' }));
+export const byId = (req: Request, res: Response) => { const product = service.byId(Number(req.params.id)); return product && (product.activo || req.user?.rol === 'admin') ? res.json(product) : res.status(404).json({ message: 'Producto no encontrado' }); };
+export const byCode = (req: Request, res: Response) => { const product = service.byCode(String(req.params.codigo)); return product && (product.activo || req.user?.rol === 'admin') ? res.json(product) : res.status(404).json({ message: 'Producto no encontrado' }); };
+export const create = (req: Request, res: Response) => res.status(201).json(service.create(input(req), req.user!.id));
+export const update = (req: Request, res: Response) => { const product = service.update(Number(req.params.id), input(req), req.user!.id); return product ? res.json(product) : res.status(404).json({ message: 'Producto no encontrado' }); };
+export const state = (req: Request, res: Response) => { const product = service.setActive(Number(req.params.id), Boolean(req.body.activo)); return product ? res.json(product) : res.status(404).json({ message: 'Producto no encontrado' }); };
+export const image = (req: Request, res: Response) => { if (!req.file) return res.status(400).json({ message: 'Imagen requerida' }); const product = service.setImage(Number(req.params.id), '/uploads/products/' + req.file.filename); return product ? res.json(product) : res.status(404).json({ message: 'Producto no encontrado' }); };

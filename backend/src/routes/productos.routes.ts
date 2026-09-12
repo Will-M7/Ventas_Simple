@@ -1,0 +1,16 @@
+import { Router } from 'express';
+import * as c from '../controllers/producto.controller';
+import { asyncHandler } from '../utils/asyncHandler';
+import { authenticate, authorize } from '../middleware/authenticate';
+import { upload } from '../middleware/upload';
+const router = Router();
+router.use(authenticate);
+router.get('/', asyncHandler(c.list));
+router.get('/codigo/:codigo', asyncHandler(c.byCode));
+router.get('/:id', asyncHandler(c.byId));
+router.post('/', authorize('admin','vendedor'), upload.single('foto'), asyncHandler(c.create));
+router.put('/:id', authorize('admin'), upload.single('foto'), asyncHandler(c.update));
+router.patch('/:id', authorize('admin'), upload.single('foto'), asyncHandler(c.update));
+router.patch('/:id/estado', authorize('admin'), asyncHandler(c.state));
+router.post('/:id/imagen', authorize('admin','vendedor'), upload.single('foto'), asyncHandler(c.image));
+export default router;

@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import * as c from '../controllers/venta.controller';
+import { asyncHandler } from '../utils/asyncHandler';
+import { authenticate, authorize } from '../middleware/authenticate';
+const router = Router();
+router.use(authenticate);
+router.post('/', asyncHandler(c.create));
+router.get('/mias', asyncHandler(c.mine));
+router.get('/', authorize('admin'), asyncHandler(c.list));
+router.get('/:id', asyncHandler(c.byId));
+export default router;

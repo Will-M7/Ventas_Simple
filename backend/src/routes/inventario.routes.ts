@@ -1,0 +1,10 @@
+import { Router } from 'express';
+import * as c from '../controllers/inventory.controller';
+import { asyncHandler } from '../utils/asyncHandler';
+import { authenticate, authorize } from '../middleware/authenticate';
+const router = Router();
+router.use(authenticate);
+router.post('/:productoId/aumentar', authorize('admin','vendedor'), asyncHandler(c.increase));
+router.post('/:productoId/disminuir', authorize('admin'), asyncHandler(c.decrease));
+router.get('/movimientos', authorize('admin'), asyncHandler(c.movements));
+export default router;

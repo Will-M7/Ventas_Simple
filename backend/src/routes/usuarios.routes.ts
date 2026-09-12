@@ -1,0 +1,14 @@
+import { Router } from 'express';
+import * as c from '../controllers/usuario.controller';
+import { asyncHandler } from '../utils/asyncHandler';
+import { authenticate, authorize } from '../middleware/authenticate';
+const router = Router();
+router.post('/login', asyncHandler(c.login));
+router.use(authenticate, authorize('admin'));
+router.get('/', asyncHandler(c.list));
+router.post('/', asyncHandler(c.create));
+router.put('/:id', asyncHandler(c.update));
+router.patch('/:id', asyncHandler(c.update));
+router.patch('/:id/estado', asyncHandler(c.state));
+router.patch('/:id/password', asyncHandler(c.password));
+export default router;

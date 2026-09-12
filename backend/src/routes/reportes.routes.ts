@@ -1,0 +1,12 @@
+import { Router } from 'express';
+import * as c from '../controllers/reporte.controller';
+import { asyncHandler } from '../utils/asyncHandler';
+import { authenticate, authorize } from '../middleware/authenticate';
+const router = Router();
+router.use(authenticate);
+router.get('/dashboard', asyncHandler(c.dashboard));
+router.get('/ventas', asyncHandler(c.sales));
+router.get('/productos-mas-vendidos', asyncHandler(c.top));
+router.get('/stock-bajo', authorize('admin'), asyncHandler(c.lowStock));
+router.get('/inventario', authorize('admin'), asyncHandler(c.movements));
+export default router;

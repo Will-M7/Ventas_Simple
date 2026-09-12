@@ -1,0 +1,13 @@
+require('dotenv/config');
+const fs = require('node:fs');
+const path = require('node:path');
+const Database = require('better-sqlite3');
+const dataDir = path.resolve(process.env.DATA_DIR || path.join(__dirname, '..', 'data'));
+const source = path.join(dataDir, 'tienda.db');
+if (!fs.existsSync(source)) throw new Error('No existe todavía backend/data/tienda.db');
+const backupDir = path.join(__dirname, '..', 'backups');
+fs.mkdirSync(backupDir, { recursive: true });
+const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13);
+const destination = path.join(backupDir, `tienda-${stamp}.db`);
+const db = new Database(source, { readonly: true });
+db.backup(destination).then(() => { db.close(); console.log(`Backup creado: ${destination}`); }).catch(error => { db.close(); throw error; });

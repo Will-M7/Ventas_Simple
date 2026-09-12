@@ -1,0 +1,23 @@
+# Node & Docker
+backend/node_modules/
+backend/dist/
+backend/uploads/*
+!backend/uploads/.gitkeep
+!backend/uploads/products/
+!backend/uploads/products/.gitkeep
+backend/data/*
+!backend/data/.gitkeep
+backend/backups/
+backend/.env
+
+# Android & Gradle
+.gradle/
+.idea/
+build/
+*/build/
+*.apk
+*.aab
+
+# Sistema
+.DS_Store
+*.log

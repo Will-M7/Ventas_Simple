@@ -1,0 +1,30 @@
+import express, { ErrorRequestHandler } from 'express';
+import cors from 'cors';
+import path from 'node:path';
+import usuarios from './routes/usuarios.routes';
+import productos from './routes/productos.routes';
+import ventas from './routes/ventas.routes';
+import reportes from './routes/reportes.routes';
+import categorias from './routes/categorias.routes';
+import inventario from './routes/inventario.routes';
+import { initDatabase } from './config/database';
+
+initDatabase();
+export const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+app.get('/health', (_req, res) => res.json({ status: 'ok', database: 'sqlite' }));
+app.use('/api/usuarios', usuarios);
+app.use('/api/productos', productos);
+app.use('/api/ventas', ventas);
+app.use('/api/reportes', reportes);
+app.use('/api/categorias', categorias);
+app.use('/api/inventario', inventario);
+const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
+  const status = Number(error?.status) || (error?.code === 'SQLITE_CONSTRAINT_UNIQUE' ? 409 : 500);
+  const message = error instanceof Error ? error.message : 'Error interno';
+  res.status(status).json({ message });
+};
+app.use(errorHandler);
