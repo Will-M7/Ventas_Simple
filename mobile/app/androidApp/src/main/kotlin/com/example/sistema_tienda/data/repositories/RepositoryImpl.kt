@@ -15,7 +15,7 @@ private suspend fun <T> request(preferences: UserPreferencesManager, endpoint: S
 } catch (e: Exception) {
     if (e.causedByNetworkFailure()) {
         val url = "http://${preferences.getServerIp()}:3000/api/$endpoint"
-        Result.failure(Exception("No se pudo conectar a $url. Toca ⚙️ para cambiar la IP del servidor.", e))
+        Result.failure(Exception("No se pudo conectar a $url. Cambia la IP del servidor en Configuración.", e))
     } else if (e is HttpException) {
         val detail = e.response()?.errorBody()?.string()?.takeIf { it.isNotBlank() }
             ?.replace(Regex("[\\{\\}\"]"), "")?.replace("message:", "")?.trim()
@@ -30,7 +30,12 @@ private suspend fun <T> request(preferences: UserPreferencesManager, endpoint: S
         }
         Result.failure(Exception(message, e))
     } else {
-        Result.failure(Exception("Error procesando la respuesta de http://${preferences.getServerIp()}:3000/api/$endpoint: ${e.message ?: e::class.simpleName}", e))
+        val message = if (endpoint.startsWith("productos/") && !endpoint.contains("codigo")) {
+            "No se pudieron guardar los cambios."
+        } else {
+            "Ocurrió un error inesperado."
+        }
+        Result.failure(Exception(message, e))
     }
 }
 
@@ -47,7 +52,8 @@ private fun ProductDto.toDomain() = Product(id, codigo ?: codigo_barras.orEmpty(
 
 class AuthRepositoryImpl(private val api: StoreApi, private val preferences: UserPreferencesManager) : AuthRepository {
     override suspend fun login(username: String, password: String) = request(preferences, "usuarios/login") {
-        val user = api.login(LoginRequest(username, password)).user.toDomain()
+        val response = api.login(LoginRequest(username, password))
+        val user = response.user.copy(token = response.token).toDomain()
         user.also { preferences.save(it) }
     }
     override suspend fun getSession() = preferences.get()
@@ -56,7 +62,9 @@ class AuthRepositoryImpl(private val api: StoreApi, private val preferences: Use
 class ProductRepositoryImpl(private val api: StoreApi, private val preferences: UserPreferencesManager) : ProductRepository {
     override suspend fun getProducts() = request(preferences, "productos") { api.products().map { it.toDomain() } }
     override suspend fun findByBarcode(code: String) = request(preferences, "productos/codigo/$code") { api.productByCode(code).toDomain() }
-    override suspend fun addStock(id: Long, quantity: Int) = request(preferences, "productos/$id/stock") { api.addStock(id, mapOf("cantidad" to quantity)).toDomain() }
+    override suspend fun addStock(id: Long, quantity: Int) = request(preferences, "productos/$id/stock") { api.addStock(id, StockChangeRequest(quantity)).toDomain() }
+    override suspend fun decreaseStock(id: Long, quantity: Int) = request(preferences, "productos/$id/stock") { api.decreaseStock(id, StockChangeRequest(quantity)).toDomain() }
+    override suspend fun update(id: Long, payload: UpdateProductRequest) = request(preferences, "productos/$id") { api.updateProduct(id, payload).toDomain() }
     override suspend fun create(product: Product): Result<Product> = Result.failure(UnsupportedOperationException("El endpoint de creación aún no está disponible"))
 }
 class SaleRepositoryImpl(private val api: StoreApi, private val preferences: UserPreferencesManager) : SaleRepository {

@@ -3,10 +3,12 @@ package com.example.sistema_tienda.data.remote
 import retrofit2.http.*
 import retrofit2.Response
 import okhttp3.MultipartBody
+import com.google.gson.annotations.SerializedName
 
 data class LoginRequest(val username: String, val password: String)
+data class HealthDto(val status: String = "", val database: String = "")
 data class UserDto(val id: Long, val username: String, val nombre: String, val rol: String, val token: String? = null)
-data class LoginResponse(val user: UserDto)
+data class LoginResponse(val token: String, val user: UserDto)
 data class ProductDto(val id: Long, val codigo: String? = null, val codigo_barras: String? = null, val nombre: String, val precio_compra: Double, val precio_venta: Double, val stock: Int, val descripcion: String? = null, val stock_minimo: Int? = null, val categoria_id: Long? = null, val categoria_nombre: String? = null, val imagen: String? = null, val activo: Int = 1)
 data class SaleItemDto(val producto_id: Long, val cantidad: Int)
 data class SaleRequest(val items: List<SaleItemDto>)
@@ -20,19 +22,44 @@ data class CategoryDto(val id: Long, val nombre: String, val descripcion: String
 data class MovementDto(val id: Long, val producto_id: Long, val producto: String, val codigo: String, val usuario: String, val tipo: String, val cantidad: Int, val stock_anterior: Int, val stock_nuevo: Int, val fecha_creacion: String)
 data class AdminUserDto(val id: Long, val username: String, val nombre: String, val rol: String, val activo: Int)
 data class TopProductDto(val id: Long, val codigo: String, val nombre: String, val unidades: Int, val ingresos: Double)
+/** Partial PATCH payload. Null fields are omitted by Gson, so editing never overwrites stock. */
+data class UpdateProductRequest(
+    val nombre: String? = null,
+    val descripcion: String? = null,
+    @SerializedName("categoria_id") val categoriaId: Long? = null,
+    @SerializedName("precio_compra") val precioCompra: Double? = null,
+    @SerializedName("precio_venta") val precioVenta: Double? = null,
+    @SerializedName("stock_minimo") val stockMinimo: Int? = null,
+    val codigo: String? = null
+)
+data class CreateProductRequest(
+    val nombre: String,
+    val codigo: String,
+    @SerializedName("precio_compra") val precioCompra: Double,
+    @SerializedName("precio_venta") val precioVenta: Double,
+    val stock: Int,
+    val descripcion: String? = null,
+    @SerializedName("stock_minimo") val stockMinimo: Int? = null,
+    @SerializedName("categoria_id") val categoriaId: Long? = null
+)
+data class ActiveRequest(val activo: Boolean)
+data class StockChangeRequest(val cantidad: Int, val observacion: String? = null)
+data class CategoryRequest(val nombre: String, val descripcion: String? = null)
+data class CreateUserRequest(val nombre: String, val username: String, val password: String, val rol: String)
+data class PasswordRequest(val password: String)
 
 interface StoreApi {
-    @GET("../health") suspend fun health(): Response<Unit>
+    @GET("../health") suspend fun health(): Response<HealthDto>
     @POST("usuarios/login") suspend fun login(@Body request: LoginRequest): LoginResponse
     @GET("productos") suspend fun products(@Query("search") search: String? = null, @Query("categoria") category: Long? = null): List<ProductDto>
     @GET("productos/{id}") suspend fun product(@Path("id") id: Long): ProductDto
-    @POST("productos") suspend fun createProduct(@Body body: Map<String, Any?>): ProductDto
-    @PATCH("productos/{id}") suspend fun updateProduct(@Path("id") id: Long, @Body body: Map<String, Any?>): ProductDto
+    @POST("productos") suspend fun createProduct(@Body body: CreateProductRequest): ProductDto
+    @PATCH("productos/{id}") suspend fun updateProduct(@Path("id") id: Long, @Body body: UpdateProductRequest): ProductDto
     @Multipart @POST("productos/{id}/imagen") suspend fun uploadProductImage(@Path("id") id: Long, @Part foto: MultipartBody.Part): ProductDto
-    @PATCH("productos/{id}/estado") suspend fun productState(@Path("id") id: Long, @Body body: Map<String, Boolean>): ProductDto
+    @PATCH("productos/{id}/estado") suspend fun productState(@Path("id") id: Long, @Body body: ActiveRequest): ProductDto
     @GET("productos/codigo/{code}") suspend fun productByCode(@Path("code") code: String): ProductDto
-    @PATCH("productos/{id}/stock") suspend fun addStock(@Path("id") id: Long, @Body quantity: Map<String, Int>): ProductDto
-    @POST("../inventario/{id}/disminuir") suspend fun decreaseStock(@Path("id") id: Long, @Body quantity: Map<String, Int>): ProductDto
+    @POST("inventario/{id}/aumentar") suspend fun addStock(@Path("id") id: Long, @Body body: StockChangeRequest): ProductDto
+    @POST("inventario/{id}/disminuir") suspend fun decreaseStock(@Path("id") id: Long, @Body body: StockChangeRequest): ProductDto
     @POST("ventas") suspend fun createSale(@Body request: SaleRequest): SaleDto
     @GET("reportes/ventas") suspend fun salesReport(@Query("periodo") period: String): ReportDto
     @GET("reportes/dashboard") suspend fun dashboard(): DashboardDto
@@ -44,12 +71,12 @@ interface StoreApi {
     @GET("ventas/mias") suspend fun mySales(): List<SaleSummaryDto>
     @GET("ventas/{id}") suspend fun sale(@Path("id") id: Long): SaleDetailDto
     @GET("categorias") suspend fun categories(): List<CategoryDto>
-    @POST("categorias") suspend fun createCategory(@Body body: Map<String, String?>): CategoryDto
-    @PATCH("categorias/{id}") suspend fun updateCategory(@Path("id") id: Long, @Body body: Map<String, String?>): CategoryDto
-    @PATCH("categorias/{id}/estado") suspend fun categoryState(@Path("id") id: Long, @Body body: Map<String, Boolean>): CategoryDto
+    @POST("categorias") suspend fun createCategory(@Body body: CategoryRequest): CategoryDto
+    @PATCH("categorias/{id}") suspend fun updateCategory(@Path("id") id: Long, @Body body: CategoryRequest): CategoryDto
+    @PATCH("categorias/{id}/estado") suspend fun categoryState(@Path("id") id: Long, @Body body: ActiveRequest): CategoryDto
     @GET("usuarios") suspend fun users(): List<AdminUserDto>
-    @POST("usuarios") suspend fun createUser(@Body body: Map<String, String>): AdminUserDto
-    @PATCH("usuarios/{id}/estado") suspend fun userState(@Path("id") id: Long, @Body body: Map<String, Boolean>): AdminUserDto
-    @PATCH("usuarios/{id}/password") suspend fun userPassword(@Path("id") id: Long, @Body body: Map<String, String>): AdminUserDto
+    @POST("usuarios") suspend fun createUser(@Body body: CreateUserRequest): AdminUserDto
+    @PATCH("usuarios/{id}/estado") suspend fun userState(@Path("id") id: Long, @Body body: ActiveRequest): AdminUserDto
+    @PATCH("usuarios/{id}/password") suspend fun userPassword(@Path("id") id: Long, @Body body: PasswordRequest): AdminUserDto
 }
 data class DashboardReportDto(val periodo: String = "dia", val ventas: Int = 0, val ingresos: Double = 0.0, val unidadesVendidas: Int = 0, val historial: List<SaleSummaryDto> = emptyList())

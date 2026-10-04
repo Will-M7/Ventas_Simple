@@ -20,7 +20,7 @@ class LoginViewModel(private val c: AppContainer) : ViewModel() {
     val username = MutableStateFlow(""); val password = MutableStateFlow(""); val busy = MutableStateFlow(false); val error = MutableStateFlow<String?>(null)
     fun login(onSuccess: (User) -> Unit) {
         if (c.getServerIp().isBlank()) {
-            error.value = "Configura la IP del servidor desde ⚙️ antes de iniciar sesión"
+            error.value = "Configura la IP del servidor antes de iniciar sesión"
             return
         }
         viewModelScope.launch { busy.value=true; error.value=null; c.login(username.value.trim(), password.value).onSuccess { onSuccess(it) }.onFailure { error.value=it.message ?: "Credenciales inválidas" }; busy.value=false }

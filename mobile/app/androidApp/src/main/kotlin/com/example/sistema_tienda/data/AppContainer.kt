@@ -3,9 +3,11 @@ package com.example.sistema_tienda.data
 import android.content.Context
 import com.example.sistema_tienda.data.local.UserPreferencesManager
 import com.example.sistema_tienda.data.remote.ApiFactory
+import com.example.sistema_tienda.data.remote.*
 import com.example.sistema_tienda.data.repositories.*
 import com.example.sistema_tienda.domain.usecase.*
 import java.io.IOException
+import kotlinx.coroutines.withTimeout
 import okhttp3.MultipartBody
 
 class AppContainer(context: Context) {
@@ -28,26 +30,37 @@ class AppContainer(context: Context) {
     suspend fun mySales() = api.mySales()
     suspend fun sale(id: Long) = api.sale(id)
     suspend fun categories() = api.categories()
-    suspend fun createCategory(name: String, description: String?) = api.createCategory(mapOf("nombre" to name, "descripcion" to description))
-    suspend fun updateCategory(id: Long, name: String, description: String?) = api.updateCategory(id, mapOf("nombre" to name, "descripcion" to description))
-    suspend fun setCategoryActive(id: Long, active: Boolean) = api.categoryState(id, mapOf("activo" to active))
+    suspend fun createCategory(name: String, description: String?) = api.createCategory(CategoryRequest(name, description))
+    suspend fun updateCategory(id: Long, name: String, description: String?) = api.updateCategory(id, CategoryRequest(name, description))
+    suspend fun setCategoryActive(id: Long, active: Boolean) = api.categoryState(id, ActiveRequest(active))
     suspend fun users() = api.users()
-    suspend fun createUser(name: String, username: String, password: String, role: String) = api.createUser(mapOf("nombre" to name, "username" to username, "password" to password, "rol" to role))
-    suspend fun setUserActive(id: Long, active: Boolean) = api.userState(id, mapOf("activo" to active))
-    suspend fun setUserPassword(id: Long, password: String) = api.userPassword(id, mapOf("password" to password))
-    suspend fun createProduct(name: String, code: String, purchase: Double, sale: Double, stock: Int, description: String? = null, minimum: Int? = null, categoryId: Long? = null) = api.createProduct(mapOf("nombre" to name, "codigo" to code, "precio_compra" to purchase, "precio_venta" to sale, "stock" to stock, "descripcion" to description, "stock_minimo" to minimum, "categoria_id" to categoryId))
+    suspend fun createUser(name: String, username: String, password: String, role: String) = api.createUser(CreateUserRequest(name, username, password, role))
+    suspend fun setUserActive(id: Long, active: Boolean) = api.userState(id, ActiveRequest(active))
+    suspend fun setUserPassword(id: Long, password: String) = api.userPassword(id, PasswordRequest(password))
+    suspend fun createProduct(name: String, code: String, purchase: Double, sale: Double, stock: Int, description: String? = null, minimum: Int? = null, categoryId: Long? = null) = api.createProduct(
+        CreateProductRequest(
+            nombre = name,
+            codigo = code,
+            precioCompra = purchase,
+            precioVenta = sale,
+            stock = stock,
+            descripcion = description,
+            stockMinimo = minimum,
+            categoriaId = categoryId
+        )
+    )
     suspend fun product(id: Long) = api.product(id)
     suspend fun searchProducts(search: String) = api.products(search = search.ifBlank { null })
-    suspend fun decreaseStock(id: Long, quantity: Int) = api.decreaseStock(id, mapOf("cantidad" to quantity))
-    suspend fun setProductActive(id: Long, active: Boolean) = api.productState(id, mapOf("activo" to active))
-    suspend fun updateProduct(id: Long, body: Map<String, Any?>) = api.updateProduct(id, body)
+    suspend fun decreaseStock(id: Long, quantity: Int) = products.decreaseStock(id, quantity)
+    suspend fun setProductActive(id: Long, active: Boolean) = api.productState(id, ActiveRequest(active))
+    suspend fun updateProduct(id: Long, request: UpdateProductRequest) = products.update(id, request)
     suspend fun uploadProductImage(id: Long, photo: MultipartBody.Part) = api.uploadProductImage(id, photo)
     suspend fun testServerConnection(): Result<Unit> = try {
-        val response = api.health()
+        val response = withTimeout(8_000L) { api.health() }
         check(response.isSuccessful) { "HTTP ${response.code()} en ${serverBaseUrl()}" }
         Result.success(Unit)
     } catch (error: IOException) {
-        Result.failure(Exception("No se pudo conectar a ${serverBaseUrl()}. Toca ⚙️ para cambiar la IP del servidor.", error))
+        Result.failure(Exception("No se pudo conectar a ${serverBaseUrl()}. Cambia la IP del servidor en Configuración.", error))
     } catch (error: Exception) {
         Result.failure(error)
     }

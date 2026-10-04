@@ -11,12 +11,13 @@ object ApiFactory {
     fun create(session: UserPreferencesManager): StoreApi {
         val auth = Interceptor { chain ->
             val token = session.get()?.token
-            val request = chain.request().newBuilder().apply { if (!token.isNullOrBlank()) addHeader("Authorization", "Bearer $token") }.build()
+            val isLogin = chain.request().url.encodedPath.endsWith("/usuarios/login")
+            val request = chain.request().newBuilder().apply { if (!isLogin && !token.isNullOrBlank()) addHeader("Authorization", "Bearer $token") }.build()
             chain.proceed(request)
         }
         val dynamicBaseUrl = Interceptor { chain ->
             val serverIp = session.getServerIp()
-            require(serverIp.isNotBlank()) { "Configura la IP del servidor desde ⚙️ antes de continuar" }
+            require(serverIp.isNotBlank()) { "Configura la IP del servidor antes de continuar" }
             val serverBase = "http://$serverIp:3000/api/".toHttpUrl()
             val originalUrl = chain.request().url
             val endpointPath = originalUrl.encodedPath.removePrefix("/api/")
