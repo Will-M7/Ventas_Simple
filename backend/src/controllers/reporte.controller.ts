@@ -1,9 +1,12 @@
 import { Request, Response } from 'express';
 import { ReporteService } from '../services/reporte.service';
+import { queryText } from '../utils/validation';
+import { sendList } from '../utils/http';
 const service = new ReporteService();
 const owner = (req: Request) => req.user!.rol === 'admin' ? undefined : req.user!.id;
+const options = (req: Request) => [owner(req), queryText(req.query.periodo, 'periodo', 10) ?? 'dia', queryText(req.query.desde, 'desde', 10), queryText(req.query.hasta, 'hasta', 10)] as const;
 export const dashboard = (req: Request, res: Response) => res.json(service.dashboard(owner(req)));
-export const sales = (req: Request, res: Response) => res.json(service.summary(owner(req), String(req.query.periodo ?? 'dia'), req.query.desde ? String(req.query.desde) : undefined, req.query.hasta ? String(req.query.hasta) : undefined));
-export const top = (req: Request, res: Response) => res.json(service.top(owner(req)));
-export const lowStock = (_req: Request, res: Response) => res.json(service.lowStock());
-export const movements = (_req: Request, res: Response) => res.json(service.movements());
+export const sales = (req: Request, res: Response) => res.json(service.summary(...options(req)));
+export const top = (req: Request, res: Response) => sendList(res, service.top(...options(req)), 20);
+export const lowStock = (_req: Request, res: Response) => sendList(res, service.lowStock(), 1000);
+export const movements = (_req: Request, res: Response) => sendList(res, service.movements(), 200);

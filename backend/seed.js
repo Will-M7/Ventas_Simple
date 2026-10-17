@@ -1,3 +1,5 @@
+// LEGACY: carga HTTP anterior, conservada como referencia.
+throw new Error('Script legacy deshabilitado. Usa únicamente la suite aislada o el seed de desarrollo protegido.');
 const API_URL = 'http://localhost:3000/api';
 
 const sellers = [

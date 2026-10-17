@@ -1,5 +1,6 @@
 package com.example.sistema_tienda.ui
 
+import com.example.sistema_tienda.BuildConfig
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -245,12 +246,15 @@ private data class Candidate(
 )
 
 private class ScanLog {
-    private val last = mutableMapOf<String, Long>()
+    private val last = linkedMapOf<String, Long>()
 
     fun event(key: String, message: String, intervalMs: Long = 1_000L) {
+        if (!BuildConfig.DEBUG) return
+        val category = key.substringBefore(':')
         val now = SystemClock.elapsedRealtime()
-        if (now - (last[key] ?: -intervalMs) < intervalMs) return
-        last[key] = now
+        if (now - (last[category] ?: -intervalMs) < intervalMs) return
+        if (category !in last && last.size >= 128) last.remove(last.keys.first())
+        last[category] = now
         Log.d(SCAN_TAG, message)
     }
 }
@@ -305,7 +309,7 @@ private class Confirmation(private val mode: ScannerMode) {
         acceptedAt = now
         rearmed = false
         count = 0
-        Log.d(SCAN_TAG, "onCode raw=${next.value} format=${formatName(next.format)}")
+        if (BuildConfig.DEBUG) Log.d(SCAN_TAG, "onCode raw=${next.value} format=${formatName(next.format)}")
         return next.value
     }
 }

@@ -6,6 +6,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -17,9 +19,7 @@ import com.example.sistema_tienda.ui.viewmodels.*
 
 @Composable fun AppNavigation(container: AppContainer) {
     val sessionVm: SessionViewModel = viewModel(factory = SimpleFactory { SessionViewModel(container) })
-    val sessionInvalidated by container.sessionInvalidated.collectAsState()
-    LaunchedEffect(sessionInvalidated) { if (sessionInvalidated > 0) sessionVm.forceLogout() }
-    when (val state = sessionVm.state.collectAsState().value) {
+    when (val state = sessionVm.state.collectAsStateWithLifecycle().value) {
         SessionState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
         SessionState.LoggedOut -> LoginScreen(container) { sessionVm.accept(it) }
         is SessionState.Error -> ErrorScreen(state.message)
@@ -30,7 +30,9 @@ import com.example.sistema_tienda.ui.viewmodels.*
 @Composable private fun StoreNavigation(user: User, c: AppContainer, sessionVm: SessionViewModel) {
     val admin = user.rol.equals("admin", true)
     val routes = if (admin) listOf("dashboard" to "Dashboard", "sale" to "Nueva venta", "products" to "Productos", "inventory" to "Inventario", "sales" to "Ventas", "reports" to "Reportes", "users" to "Usuarios", "settings" to "Configuración") else listOf("dashboard" to "Inicio", "sale" to "Nueva venta", "my_sales" to "Mis ventas", "my_reports" to "Mis reportes", "settings" to "Configuración")
-    var route by remember { mutableStateOf("dashboard") }
+    var route by rememberSaveable(user.id, c.serverBaseUrl()) { mutableStateOf("dashboard") }
+    val notice by c.resultNotice.collectAsStateWithLifecycle()
+    LaunchedEffect(route) { c.clearResultNotice() }
     var drawerOpen by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     LaunchedEffect(drawerOpen) { if (drawerOpen) drawerState.open() else drawerState.close() }
@@ -38,7 +40,9 @@ import com.example.sistema_tienda.ui.viewmodels.*
         ModalDrawerSheet { Spacer(Modifier.height(24.dp)); Text("Sistematienda", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(24.dp)); Text("${user.nombre} · ${user.rol}", modifier = Modifier.padding(horizontal = 24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(16.dp)); routes.forEach { (key, label) -> NavigationDrawerItem(label = { Text(label) }, selected = route == key, onClick = { route = key; drawerOpen = false }, modifier = Modifier.padding(horizontal = 12.dp)) }; Spacer(Modifier.weight(1f)); NavigationDrawerItem(label = { Text("Cerrar sesión") }, selected = false, onClick = { sessionVm.logout(); drawerOpen = false }, modifier = Modifier.padding(12.dp)); Spacer(Modifier.height(12.dp)) }
     }) {
             Scaffold(topBar = { TopAppBar(title = { Text(routes.firstOrNull { it.first == route }?.second ?: "Sistematienda") }, navigationIcon = { IconButton(onClick = { drawerOpen = true }) { Icon(Icons.Outlined.Menu, "Menú", tint = MaterialTheme.colorScheme.onSurface) } }, actions = { IconButton(onClick = { route = "settings" }) { Icon(Icons.Outlined.Settings, "Configuración", tint = MaterialTheme.colorScheme.onSurface) } }) }) { padding ->
-            Box(Modifier.fillMaxSize().padding(padding)) { when (route) {
+            Column(Modifier.fillMaxSize().padding(padding)) {
+                notice?.let { Text(it, modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.error) }
+                Box(Modifier.weight(1f)) { when (route) {
                 "dashboard" -> DashboardScreen(c, user, onNavigate = { route = it })
                 "sale" -> NewSaleScreen(c, user)
                 "products" -> ProductsScreen(c, user)
@@ -47,7 +51,7 @@ import com.example.sistema_tienda.ui.viewmodels.*
                 "reports", "my_reports" -> ReportsScreen(c, admin)
                 "users" -> UsersScreen(c)
                 "settings" -> ServerSettingsScreen(c) { route = "dashboard" }
-            } }
+            } } }
         }
     }
 }

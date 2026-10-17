@@ -8,5 +8,5 @@ import com.example.sistema_tienda.ui.navigation.AppNavigation
 
 @Composable
 fun StoreApp() {
-    SistematiendaTheme { AppNavigation(AppContainer(LocalContext.current)) }
+    SistematiendaTheme { AppNavigation(AppContainer.get(LocalContext.current)) }
 }

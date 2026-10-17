@@ -1,3 +1,4 @@
+# LEGACY: MySQL/Docker anterior; INCOMPATIBLE con el backend SQLite actual. No usar en producción. Ver README.
 FROM node:22-alpine
 WORKDIR /app
 COPY package*.json ./

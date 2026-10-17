@@ -1,28 +1,69 @@
-import { db } from '../config/database';
+import { db, withTransaction } from '../config/database';
 import { createToken, hashPassword, verifyPassword } from '../utils/security';
 import { Rol, User } from '../types/models';
-type UserRow = User & { password_hash: string };
+import { HttpError, object, text, password, role, id, boolean } from '../utils/validation';
+type UserRow = User & { password_hash: string; session_version: number };
 const publicUser = (row: UserRow): User => ({ id: row.id, username: row.username, nombre: row.nombre, rol: row.rol, activo: row.activo, fecha_creacion: row.fecha_creacion });
+let dummyHash: Promise<string> | undefined;
 export class UsuarioService {
-  login(username: string, password: string) {
-    const row = db.prepare('SELECT * FROM users WHERE username = ?').get(username) as UserRow | undefined;
-    if (!row || !row.activo || !verifyPassword(password, row.password_hash)) return null;
-    const user = publicUser(row);
-    return { token: createToken({ id: user.id, username: user.username, rol: user.rol }), user };
+  async login(username: unknown, rawPassword: unknown) {
+    const name = text(username, 'username', 80);
+    if (typeof rawPassword !== 'string' || !rawPassword || Buffer.byteLength(rawPassword) > 72) throw new HttpError(400, 'Contraseña inválida');
+    const row = db.prepare('SELECT * FROM users WHERE username=?').get(name) as UserRow | undefined;
+    dummyHash ??= hashPassword('invalid-account-dummy-password');
+    const matches = await verifyPassword(rawPassword, row?.password_hash ?? await dummyHash);
+    if (!row || !row.activo || !matches) return null;
+    // Password hashing yields to the event loop; recheck state before issuing a token.
+    const current = db.prepare('SELECT * FROM users WHERE id=?').get(row.id) as UserRow | undefined;
+    if (!current?.activo || current.session_version !== row.session_version || current.password_hash !== row.password_hash) return null;
+    return { token: createToken({ id: current.id, username: current.username, rol: current.rol, session_version: current.session_version }), user: publicUser(current) };
   }
-  list(): User[] { return db.prepare('SELECT id,username,nombre,rol,activo,fecha_creacion FROM users ORDER BY id DESC').all() as User[]; }
-  create(input: { username: string; password: string; nombre: string; rol?: Rol }) {
-    if (!input.username?.trim() || !input.password || !input.nombre?.trim()) throw Object.assign(new Error('username, password y nombre son obligatorios'), { status: 400 });
-    const result = db.prepare('INSERT INTO users (username,password_hash,nombre,rol) VALUES (?,?,?,?)').run(input.username.trim(), hashPassword(input.password), input.nombre.trim(), input.rol ?? 'vendedor');
+  list(): User[] { return db.prepare('SELECT id,username,nombre,rol,activo,fecha_creacion FROM users ORDER BY id DESC LIMIT 1001').all() as User[]; }
+  async create(value: unknown) {
+    const input = object(value);
+    const username = text(input.username, 'username', 80), nombre = text(input.nombre, 'nombre', 120);
+    const rol = role(input.rol === undefined ? 'vendedor' : input.rol), hash = await hashPassword(password(input.password));
+    const result = db.prepare('INSERT INTO users(username,password_hash,nombre,rol) VALUES (?,?,?,?)').run(username, hash, nombre, rol);
     return this.byId(Number(result.lastInsertRowid));
   }
-  update(id: number, input: Partial<{ username: string; nombre: string; rol: Rol; password: string }>) {
-    const fields: string[] = []; const values: unknown[] = [];
-    for (const key of ['username', 'nombre', 'rol'] as const) if (input[key] !== undefined) { fields.push(key + ' = ?'); values.push(input[key]); }
-    if (input.password) { fields.push('password_hash = ?'); values.push(hashPassword(input.password)); }
-    if (fields.length) { fields.push('fecha_actualizacion = CURRENT_TIMESTAMP'); values.push(id); db.prepare('UPDATE users SET ' + fields.join(', ') + ' WHERE id = ?').run(...values); }
-    return this.byId(id);
+  async update(userId: number, value: unknown) {
+    id(userId); const input = object(value);
+    const username = input.username === undefined ? undefined : text(input.username, 'username', 80);
+    const nombre = input.nombre === undefined ? undefined : text(input.nombre, 'nombre', 120);
+    const rol = input.rol === undefined ? undefined : role(input.rol);
+    const hash = input.password === undefined ? undefined : await hashPassword(password(input.password));
+    if (username === undefined && nombre === undefined && rol === undefined && hash === undefined) throw new HttpError(400, 'No hay cambios válidos');
+    return withTransaction(() => {
+      const current = this.row(userId);
+      this.protectLastAdmin(current, rol ?? current.rol, !!current.activo);
+      const fields: string[] = [], values: unknown[] = [];
+      for (const [key, v] of [['username',username],['nombre',nombre],['rol',rol],['password_hash',hash]]) {
+        if (v !== undefined) { fields.push(key + '=?'); values.push(v); }
+      }
+      if (hash !== undefined || (rol !== undefined && rol !== current.rol)) fields.push('session_version=session_version+1');
+      db.prepare('UPDATE users SET ' + fields.join(',') + ',fecha_actualizacion=CURRENT_TIMESTAMP WHERE id=?').run(...values, userId);
+      return this.byId(userId);
+    });
   }
-  setActive(id: number, activo: boolean) { db.prepare('UPDATE users SET activo=?,fecha_actualizacion=CURRENT_TIMESTAMP WHERE id=?').run(activo ? 1 : 0, id); return this.byId(id); }
-  byId(id: number): User | null { return (db.prepare('SELECT id,username,nombre,rol,activo,fecha_creacion FROM users WHERE id=?').get(id) as User | undefined) ?? null; }
+  setActive(userId: number, value: unknown) {
+    id(userId); const active = boolean(value);
+    return withTransaction(() => {
+      const current = this.row(userId);
+      this.protectLastAdmin(current, current.rol, active);
+      db.prepare('UPDATE users SET activo=?,session_version=session_version+1,fecha_actualizacion=CURRENT_TIMESTAMP WHERE id=?').run(active ? 1 : 0, userId);
+      return this.byId(userId);
+    });
+  }
+  private protectLastAdmin(current: UserRow, nextRole: Rol, nextActive: boolean) {
+    if (current.activo && current.rol === 'admin' && (!nextActive || nextRole !== 'admin')) {
+      const others = db.prepare("SELECT COUNT(*) n FROM users WHERE rol='admin' AND activo=1 AND id<>?").get(current.id) as {n: number};
+      if (!others.n) throw new HttpError(409, 'Debe existir al menos un administrador activo');
+    }
+  }
+  private row(userId: number): UserRow {
+    const row = db.prepare('SELECT * FROM users WHERE id=?').get(userId) as UserRow | undefined;
+    if (!row) throw new HttpError(404, 'Usuario no encontrado');
+    return row;
+  }
+  byId(userId: number): User { return publicUser(this.row(id(userId))); }
 }

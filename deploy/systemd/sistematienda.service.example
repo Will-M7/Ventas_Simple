@@ -5,6 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=tienda
+UMask=0027
 WorkingDirectory=/opt/sistematienda/backend
 EnvironmentFile=/opt/sistematienda/backend/.env
 ExecStart=/usr/bin/node /opt/sistematienda/backend/dist/server.js

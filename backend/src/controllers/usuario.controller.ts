@@ -1,9 +1,14 @@
 import { Request, Response } from 'express';
 import { UsuarioService } from '../services/usuario.service';
+import { id, object } from '../utils/validation';
+import { sendList } from '../utils/http';
 const service = new UsuarioService();
-export const login = (req: Request, res: Response) => { const result = service.login(String(req.body.username ?? ''), String(req.body.password ?? '')); if (!result) return res.status(401).json({ message: 'Credenciales inválidas o usuario inactivo' }); return res.json(result); };
-export const list = (_req: Request, res: Response) => res.json(service.list());
-export const create = (req: Request, res: Response) => res.status(201).json(service.create(req.body));
-export const update = (req: Request, res: Response) => { const user = service.update(Number(req.params.id), req.body); return user ? res.json(user) : res.status(404).json({ message: 'Usuario no encontrado' }); };
-export const state = (req: Request, res: Response) => { const user = service.setActive(Number(req.params.id), Boolean(req.body.activo)); return user ? res.json(user) : res.status(404).json({ message: 'Usuario no encontrado' }); };
-export const password = (req: Request, res: Response) => { const user = service.update(Number(req.params.id), { password: String(req.body.password ?? '') }); return user ? res.json(user) : res.status(404).json({ message: 'Usuario no encontrado' }); };
+export const login = async (req: Request, res: Response) => {
+  const body = object(req.body), result = await service.login(body.username, body.password);
+  return result ? res.json(result) : res.status(401).json({ message: 'Credenciales inválidas o usuario inactivo' });
+};
+export const list = (_req: Request, res: Response) => sendList(res, service.list(), 1000);
+export const create = async (req: Request, res: Response) => res.status(201).json(await service.create(req.body));
+export const update = async (req: Request, res: Response) => res.json(await service.update(id(req.params.id), req.body));
+export const state = (req: Request, res: Response) => res.json(service.setActive(id(req.params.id), object(req.body).activo));
+export const password = async (req: Request, res: Response) => res.json(await service.update(id(req.params.id), { password: object(req.body).password ?? '' }));

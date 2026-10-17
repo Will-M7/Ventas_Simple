@@ -1,3 +1,4 @@
+-- LEGACY: MySQL/Docker anterior; INCOMPATIBLE con el backend SQLite actual. No usar en producción. Ver README.
 CREATE DATABASE IF NOT EXISTS sistematienda CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE sistematienda;
 

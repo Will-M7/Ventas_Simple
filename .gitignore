@@ -4,6 +4,7 @@ backend/dist/
 backend/uploads/*
 !backend/uploads/.gitkeep
 !backend/uploads/products/
+backend/uploads/products/*
 !backend/uploads/products/.gitkeep
 backend/data/*
 !backend/data/.gitkeep
@@ -21,3 +22,8 @@ build/
 # Sistema
 .DS_Store
 *.log
+
+# Entornos de desarrollo aislados (no usar data real)
+backend/data-dev/
+backend/uploads-dev/
+backend/backups-dev/

@@ -1,13 +1,10 @@
 require('dotenv/config');
-const fs = require('node:fs');
 const path = require('node:path');
-const Database = require('better-sqlite3');
-const dataDir = path.resolve(process.env.DATA_DIR || path.join(__dirname, '..', 'data'));
-const source = path.join(dataDir, 'tienda.db');
-if (!fs.existsSync(source)) throw new Error('No existe todavía backend/data/tienda.db');
-const backupDir = path.join(__dirname, '..', 'backups');
-fs.mkdirSync(backupDir, { recursive: true });
-const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 13);
-const destination = path.join(backupDir, `tienda-${stamp}.db`);
-const db = new Database(source, { readonly: true });
-db.backup(destination).then(() => { db.close(); console.log(`Backup creado: ${destination}`); }).catch(error => { db.close(); throw error; });
+const { createBackup } = require('../dist/operations/backup');
+const { version } = require('../package.json');
+createBackup({
+  databaseFile: path.join(path.resolve(process.env.DATA_DIR || path.join(__dirname,'..','data')), 'tienda.db'),
+  uploadsDirectory: path.resolve(process.env.UPLOAD_DIR || path.join(__dirname,'..','uploads')),
+  outputDirectory: path.resolve(process.env.BACKUP_DIR || path.join(__dirname,'..','backups')),
+  retention: Number(process.env.BACKUP_RETENTION_COUNT || 14), applicationVersion: version,
+}).then(destination => console.log('Backup verificado: ' + destination)).catch(() => { console.error('Backup incompleto; no se publicó una copia válida. Revisa disco, permisos y archivos referenciados.'); process.exitCode=1; });

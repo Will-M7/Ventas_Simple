@@ -11,6 +11,7 @@ kotlin {
     }
 }
 dependencies {
+    testImplementation(libs.junit)
     implementation(project(":app:shared"))
 
     implementation(libs.androidx.activity.compose)
@@ -29,8 +30,7 @@ dependencies {
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
-    implementation("androidx.datastore:datastore-preferences:1.1.7")
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
 }
 

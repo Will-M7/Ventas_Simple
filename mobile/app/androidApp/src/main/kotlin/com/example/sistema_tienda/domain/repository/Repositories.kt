@@ -16,6 +16,6 @@ interface ProductRepository {
     suspend fun create(product: Product): Result<Product>
 }
 interface SaleRepository {
-    suspend fun process(userId: Long, items: List<SaleItem>): Result<Sale>
+    suspend fun process(userId: Long, items: List<SaleItem>, operationId: String? = null): Result<Sale>
     suspend fun report(period: String): Result<Double>
 }

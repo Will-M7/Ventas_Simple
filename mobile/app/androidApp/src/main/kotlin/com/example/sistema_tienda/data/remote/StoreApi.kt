@@ -11,10 +11,10 @@ data class UserDto(val id: Long, val username: String, val nombre: String, val r
 data class LoginResponse(val token: String, val user: UserDto)
 data class ProductDto(val id: Long, val codigo: String? = null, val codigo_barras: String? = null, val nombre: String, val precio_compra: Double, val precio_venta: Double, val stock: Int, val descripcion: String? = null, val stock_minimo: Int? = null, val categoria_id: Long? = null, val categoria_nombre: String? = null, val imagen: String? = null, val activo: Int = 1)
 data class SaleItemDto(val producto_id: Long, val cantidad: Int)
-data class SaleRequest(val items: List<SaleItemDto>)
+data class SaleRequest(val items: List<SaleItemDto>, val operation_id: String? = null)
 data class SaleDto(val id: Long, val total: Double)
 data class ReportDto(val ingresos: Double = 0.0, val total_vendido: Double = 0.0)
-data class DashboardDto(val ventasHoy: Int = 0, val ingresosHoy: Double = 0.0, val productosActivos: Int = 0, val productosStockBajo: Int = 0, val unidadesVendidasHoy: Int = 0, val ventasRecientes: List<SaleSummaryDto> = emptyList())
+data class DashboardDto(val ventasHoy: Int = 0, val ingresosHoy: Double = 0.0, val productosActivos: Int = 0, val productosStockBajo: Int = 0, val unidadesVendidasHoy: Int = 0, val ventasRecientes: List<SaleSummaryDto> = emptyList(), val historialTruncado: Boolean = false)
 data class SaleSummaryDto(val id: Long, val total: Double, val fecha_creacion: String, val vendedor: String? = null, val vendedor_nombre: String? = null)
 data class SaleDetailDto(val id: Long, val usuario_id: Long, val total: Double, val fecha_creacion: String, val vendedor: String? = null, val vendedor_nombre: String? = null, val items: List<SaleLineDto> = emptyList())
 data class SaleLineDto(val producto_id: Long, val producto: String? = null, val codigo: String? = null, val cantidad: Int, val precio_unitario: Double, val subtotal: Double)
@@ -64,7 +64,7 @@ interface StoreApi {
     @GET("reportes/ventas") suspend fun salesReport(@Query("periodo") period: String): ReportDto
     @GET("reportes/dashboard") suspend fun dashboard(): DashboardDto
     @GET("reportes/ventas") suspend fun report(@Query("periodo") period: String): DashboardReportDto
-    @GET("reportes/productos-mas-vendidos") suspend fun topProducts(): List<TopProductDto>
+    @GET("reportes/productos-mas-vendidos") suspend fun topProducts(@Query("periodo") period: String): List<TopProductDto>
     @GET("reportes/stock-bajo") suspend fun lowStock(): List<ProductDto>
     @GET("reportes/inventario") suspend fun inventory(): List<MovementDto>
     @GET("ventas") suspend fun sales(): List<SaleSummaryDto>
@@ -79,4 +79,4 @@ interface StoreApi {
     @PATCH("usuarios/{id}/estado") suspend fun userState(@Path("id") id: Long, @Body body: ActiveRequest): AdminUserDto
     @PATCH("usuarios/{id}/password") suspend fun userPassword(@Path("id") id: Long, @Body body: PasswordRequest): AdminUserDto
 }
-data class DashboardReportDto(val periodo: String = "dia", val ventas: Int = 0, val ingresos: Double = 0.0, val unidadesVendidas: Int = 0, val historial: List<SaleSummaryDto> = emptyList())
+data class DashboardReportDto(val periodo: String = "dia", val ventas: Int = 0, val ingresos: Double = 0.0, val unidadesVendidas: Int = 0, val historial: List<SaleSummaryDto> = emptyList(), val historialTruncado: Boolean = false)
